@@ -19,6 +19,8 @@ interface CartContextData {
   updateProductAmount: ({ productId, amount }: UpdateProductAmount) => void;
 }
 
+type ProductData = Omit<Product, 'amount'>;
+
 const CartContext = createContext<CartContextData>({} as CartContextData);
 
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
@@ -27,14 +29,55 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
     if (!storagedCart) return [];
     return JSON.parse(storagedCart);
-    
   });
+
+  const isProductExist = (productId: Product['id']) =>
+    cart.find((product) => product.id === productId);
+
+  const itHasStock = async (productId: Product['id']) => {
+    const response = await api.get<Stock>(`/stock/${productId}`);
+    return response.data.amount;
+  };
+
+  const setToLocalStorage = (updatedCart: Product[]) =>
+    localStorage.setItem('@RocketShoes:cart', JSON.stringify(updatedCart));
 
   const addProduct = async (productId: number) => {
     try {
-      // TODO
+      const productExist = isProductExist(productId);
+      const amountOnStock = await itHasStock(productId);
+
+      if (!!productExist) {
+        if (amountOnStock >= productExist.amount + 1) {
+          const updatedCart = cart.map((cartProduct) => {
+            if (cartProduct.id === productExist.id) {
+              return {
+                ...cartProduct,
+                amount: cartProduct.amount + 1,
+              };
+            }
+            return cartProduct;
+          });
+          setCart(updatedCart);
+          setToLocalStorage(updatedCart);
+        } else {
+          toast.error('Quantidade solicitada fora de estoque');
+        }
+      } else if (amountOnStock >= 1) {
+        const response = await api.get<ProductData>(`/products/${productId}`);
+        const productData = response.data;
+        const updatedCart = [
+          ...cart,
+          {
+            ...productData,
+            amount: 1,
+          },
+        ];
+        setCart(updatedCart);
+        setToLocalStorage(updatedCart);
+      }
     } catch {
-      // TODO
+      toast.error('Erro na adição do produto');
     }
   };
 
