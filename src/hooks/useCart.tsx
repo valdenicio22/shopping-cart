@@ -102,6 +102,22 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
+      if (amount <= 0) return;
+
+      const productExist = isProductExist(productId);
+      if (!productExist) throw Error();
+
+      const amountOnStock = await itHasStock(productId);
+      if (amount > amountOnStock) {
+        toast.error('Quantidade solicitada fora de estoque');
+        return;
+      }
+
+      const updatedCart = cart.map((product) =>
+        productId === product.id ? { ...product, amount: amount } : product
+      );
+      setCart(updatedCart);
+      setToLocalStorage(updatedCart);
     } catch {
       toast.error('Erro na alteração de quantidade do produto');
     }
