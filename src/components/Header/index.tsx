@@ -7,8 +7,9 @@ import { useCart } from '../../hooks/useCart';
 
 const Header = (): JSX.Element => {
   const { state } = useCart();
-  const { cart } = state;
-  const cartSize = cart.length;
+  console.log('State on Header', state);
+  const cartSize = state.cart.length;
+  console.log({ cartSize });
 
   return (
     <Container>

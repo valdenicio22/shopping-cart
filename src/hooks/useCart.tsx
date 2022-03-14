@@ -67,9 +67,8 @@ const reducer = (state: State, action: Action): State => {
           amount: amount,
         },
       ];
-      return {
-        cart: updatedCart,
-      };
+      setToLocalStorage(updatedCart);
+      return { cart: updatedCart };
     }
     case 'removeProductFromCart': {
       const updatedCart = state.cart.filter(
@@ -91,14 +90,6 @@ const initialState = (): State => {
 
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState());
-  console.log(state);
-
-  // const [cart, setCart] = useState<Product[]>(() => {
-  //   const storagedCart = localStorage.getItem('@RocketShoes:cart');
-
-  //   if (!storagedCart) return [];
-  //   return JSON.parse(storagedCart);
-  // });
 
   const isProductExist = (productId: Product['id']) =>
     state.cart.find((product) => product.id === productId);
@@ -112,10 +103,6 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     try {
       const productExist = isProductExist(productId);
       const amountOnStock = await itHasStock(productId);
-      if (amountOnStock <= 0) {
-        toast.error('Quantidade solicitada fora de estoque');
-        return;
-      }
 
       if (!!productExist) {
         if (amountOnStock >= productExist.amount + 1) {
@@ -130,8 +117,10 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
           toast.error('Quantidade solicitada fora de estoque');
           return;
         }
+        return;
       }
 
+      if (amountOnStock < 1) return;
       const response = await api.get<ProductData>(`/products/${productId}`);
       const productData = response.data;
       dispatch({

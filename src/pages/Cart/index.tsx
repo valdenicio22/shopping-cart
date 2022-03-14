@@ -28,20 +28,15 @@ const Cart = (): JSX.Element => {
   }));
   const total = formatPrice(
     cart.reduce((sumTotal, product) => {
-      console.log(product);
       return (sumTotal += product.price * product.amount);
     }, 0)
   );
 
-  console.log('total', total);
-
   function handleProductIncrement(product: Product) {
-    console.log({ productId: product.id, amount: product.amount + 1 });
     updateProductAmount({ productId: product.id, amount: product.amount + 1 });
   }
 
   function handleProductDecrement(product: Product) {
-    console.log({ productId: product.id, amount: product.amount - 1 });
     updateProductAmount({ productId: product.id, amount: product.amount - 1 });
   }
 
