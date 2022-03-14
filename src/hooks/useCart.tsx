@@ -1,4 +1,10 @@
-import { createContext, ReactNode, useContext, useState } from 'react';
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useReducer,
+  useState,
+} from 'react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { Product, Stock } from '../types';
@@ -21,9 +27,74 @@ interface CartContextData {
 
 type ProductData = Omit<Product, 'amount'>;
 
+type State = {
+  cart: Product[];
+};
+type Action =
+  | {
+      type: 'addToCart';
+      payload: { product: ProductData; amount: Product['amount'] };
+    }
+  | {
+      type: 'updateProductAmountOnCartByHomePage';
+      payload: { product: Product; newAmount: Product['amount'] };
+    }
+  | { type: 'removeProductFromCart'; productId: Product['id'] };
+
 const CartContext = createContext<CartContextData>({} as CartContextData);
 
+const reducer = (state: State, action: Action): State => {
+  switch (action.type) {
+    case 'updateProductAmountOnCartByHomePage': {
+      const { cart } = state;
+      const { newAmount, product } = action.payload;
+      const updatedCart = cart.map((cartProduct) =>
+        cartProduct.id === product.id
+          ? {
+              ...cartProduct,
+              amount: newAmount,
+            }
+          : cartProduct
+      );
+      setToLocalStorage(updatedCart);
+      return { cart: updatedCart };
+    }
+    case 'addToCart': {
+      const { cart } = state;
+      const { amount, product } = action.payload;
+      const updatedCart = [
+        ...cart,
+        {
+          ...product,
+          amount: amount,
+        },
+      ];
+      return {
+        cart: updatedCart,
+      };
+    }
+    case 'removeProductFromCart':
+      return {
+        cart: state.cart.filter((product) => product.id !== action.productId),
+      };
+    default:
+      return state;
+  }
+};
+
+const initialState = (): State => {
+  const storagedCart = localStorage.getItem('@RocketShoes:cart');
+  if (!storagedCart) return { cart: [] };
+  return { cart: JSON.parse(storagedCart) };
+};
+
+const setToLocalStorage = (updatedCart: Product[]) =>
+  localStorage.setItem('@RocketShoes:cart', JSON.stringify(updatedCart));
+
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
+  const [state, dispatch] = useReducer(reducer, initialState());
+  console.log(state);
+
   const [cart, setCart] = useState<Product[]>(() => {
     const storagedCart = localStorage.getItem('@RocketShoes:cart');
 
@@ -39,43 +110,36 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     return response.data.amount;
   };
 
-  const setToLocalStorage = (updatedCart: Product[]) =>
-    localStorage.setItem('@RocketShoes:cart', JSON.stringify(updatedCart));
-
   const addProduct = async (productId: number) => {
     try {
       const productExist = isProductExist(productId);
       const amountOnStock = await itHasStock(productId);
+      if (amountOnStock <= 0) {
+        toast.error('Quantidade solicitada fora de estoque');
+        return;
+      }
 
       if (!!productExist) {
         if (amountOnStock >= productExist.amount + 1) {
-          const updatedCart = cart.map((cartProduct) => {
-            if (cartProduct.id === productExist.id) {
-              return {
-                ...cartProduct,
-                amount: cartProduct.amount + 1,
-              };
-            }
-            return cartProduct;
+          dispatch({
+            type: 'updateProductAmountOnCartByHomePage',
+            payload: {
+              product: productExist,
+              newAmount: productExist.amount + 1,
+            },
           });
-          setCart(updatedCart);
-          setToLocalStorage(updatedCart);
         } else {
           toast.error('Quantidade solicitada fora de estoque');
+          return;
         }
-      } else if (amountOnStock >= 1) {
-        const response = await api.get<ProductData>(`/products/${productId}`);
-        const productData = response.data;
-        const updatedCart = [
-          ...cart,
-          {
-            ...productData,
-            amount: 1,
-          },
-        ];
-        setCart(updatedCart);
-        setToLocalStorage(updatedCart);
       }
+
+      const response = await api.get<ProductData>(`/products/${productId}`);
+      const productData = response.data;
+      dispatch({
+        type: 'addToCart',
+        payload: { product: productData, amount: 1 },
+      });
     } catch {
       toast.error('Erro na adição do produto');
     }
