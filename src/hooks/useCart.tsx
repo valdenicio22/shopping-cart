@@ -1,10 +1,4 @@
-import {
-  createContext,
-  ReactNode,
-  useContext,
-  useReducer,
-  useState,
-} from 'react';
+import { createContext, ReactNode, useContext, useReducer } from 'react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { Product, Stock } from '../types';
@@ -19,7 +13,7 @@ interface UpdateProductAmount {
 }
 
 interface CartContextData {
-  cart: Product[];
+  state: State;
   addProduct: (productId: number) => Promise<void>;
   removeProduct: (productId: number) => void;
   updateProductAmount: ({ productId, amount }: UpdateProductAmount) => void;
@@ -36,16 +30,20 @@ type Action =
       payload: { product: ProductData; amount: Product['amount'] };
     }
   | {
-      type: 'updateProductAmountOnCartByHomePage';
+      type: 'updateProductAmountOnCart';
       payload: { product: Product; newAmount: Product['amount'] };
     }
-  | { type: 'removeProductFromCart'; productId: Product['id'] };
+  | { type: 'removeProductFromCart'; payload: { productId: Product['id'] } };
 
 const CartContext = createContext<CartContextData>({} as CartContextData);
 
+function setToLocalStorage(updatedCart: Product[]) {
+  localStorage.setItem('@RocketShoes:cart', JSON.stringify(updatedCart));
+}
+
 const reducer = (state: State, action: Action): State => {
   switch (action.type) {
-    case 'updateProductAmountOnCartByHomePage': {
+    case 'updateProductAmountOnCart': {
       const { cart } = state;
       const { newAmount, product } = action.payload;
       const updatedCart = cart.map((cartProduct) =>
@@ -73,10 +71,13 @@ const reducer = (state: State, action: Action): State => {
         cart: updatedCart,
       };
     }
-    case 'removeProductFromCart':
-      return {
-        cart: state.cart.filter((product) => product.id !== action.productId),
-      };
+    case 'removeProductFromCart': {
+      const updatedCart = state.cart.filter(
+        (product) => product.id !== action.payload.productId
+      );
+      setToLocalStorage(updatedCart);
+      return { cart: updatedCart };
+    }
     default:
       return state;
   }
@@ -88,22 +89,19 @@ const initialState = (): State => {
   return { cart: JSON.parse(storagedCart) };
 };
 
-const setToLocalStorage = (updatedCart: Product[]) =>
-  localStorage.setItem('@RocketShoes:cart', JSON.stringify(updatedCart));
-
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState());
   console.log(state);
 
-  const [cart, setCart] = useState<Product[]>(() => {
-    const storagedCart = localStorage.getItem('@RocketShoes:cart');
+  // const [cart, setCart] = useState<Product[]>(() => {
+  //   const storagedCart = localStorage.getItem('@RocketShoes:cart');
 
-    if (!storagedCart) return [];
-    return JSON.parse(storagedCart);
-  });
+  //   if (!storagedCart) return [];
+  //   return JSON.parse(storagedCart);
+  // });
 
   const isProductExist = (productId: Product['id']) =>
-    cart.find((product) => product.id === productId);
+    state.cart.find((product) => product.id === productId);
 
   const itHasStock = async (productId: Product['id']) => {
     const response = await api.get<Stock>(`/stock/${productId}`);
@@ -122,7 +120,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       if (!!productExist) {
         if (amountOnStock >= productExist.amount + 1) {
           dispatch({
-            type: 'updateProductAmountOnCartByHomePage',
+            type: 'updateProductAmountOnCart',
             payload: {
               product: productExist,
               newAmount: productExist.amount + 1,
@@ -149,13 +147,10 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     try {
       const productExist = isProductExist(productId);
       if (!productExist) throw Error();
-      else {
-        const updatedCart = cart.filter(
-          (productInCart) => productInCart.id !== productId
-        );
-        setCart(updatedCart);
-        setToLocalStorage(updatedCart);
-      }
+      dispatch({
+        type: 'removeProductFromCart',
+        payload: { productId: productExist.id },
+      });
     } catch {
       toast.error('Erro na remoção do produto');
     }
@@ -177,11 +172,10 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
         return;
       }
 
-      const updatedCart = cart.map((product) =>
-        productId === product.id ? { ...product, amount: amount } : product
-      );
-      setCart(updatedCart);
-      setToLocalStorage(updatedCart);
+      dispatch({
+        type: 'updateProductAmountOnCart',
+        payload: { newAmount: amount, product: productExist },
+      });
     } catch {
       toast.error('Erro na alteração de quantidade do produto');
     }
@@ -189,7 +183,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   return (
     <CartContext.Provider
-      value={{ cart, addProduct, removeProduct, updateProductAmount }}
+      value={{ state, addProduct, removeProduct, updateProductAmount }}
     >
       {children}
     </CartContext.Provider>
