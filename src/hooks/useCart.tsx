@@ -13,7 +13,7 @@ interface UpdateProductAmount {
 }
 
 interface CartContextData {
-  state: State;
+  cart: Product[];
   addProduct: (productId: number) => Promise<void>;
   removeProduct: (productId: number) => void;
   updateProductAmount: ({ productId, amount }: UpdateProductAmount) => void;
@@ -90,6 +90,7 @@ const initialState = (): State => {
 
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState());
+  console.log({ state });
 
   const isProductExist = (productId: Product['id']) =>
     state.cart.find((product) => product.id === productId);
@@ -172,7 +173,12 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   return (
     <CartContext.Provider
-      value={{ state, addProduct, removeProduct, updateProductAmount }}
+      value={{
+        cart: state.cart,
+        addProduct,
+        removeProduct,
+        updateProductAmount,
+      }}
     >
       {children}
     </CartContext.Provider>

@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   MdDelete,
   MdAddCircleOutline,
@@ -18,8 +17,7 @@ interface Product {
 }
 
 const Cart = (): JSX.Element => {
-  const { state, removeProduct, updateProductAmount } = useCart();
-  const { cart } = state;
+  const { cart, removeProduct, updateProductAmount } = useCart();
 
   const cartFormatted = cart.map((product) => ({
     ...product,

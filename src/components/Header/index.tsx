@@ -6,10 +6,8 @@ import { Container, Cart } from './styles';
 import { useCart } from '../../hooks/useCart';
 
 const Header = (): JSX.Element => {
-  const { state } = useCart();
-  console.log('State on Header', state);
-  const cartSize = state.cart.length;
-  console.log({ cartSize });
+  const { cart } = useCart();
+  const cartSize = cart.length;
 
   return (
     <Container>
